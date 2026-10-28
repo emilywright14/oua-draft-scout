@@ -1,0 +1,6 @@
+1. Run supabase-university-rule.sql in Supabase SQL Editor.
+2. Project Settings > API Keys: copy ONLY publishable key (sb_publishable_...).
+3. Edit draft-config.js: replace two PASTE_ fields with publishable key and your commissioner Auth User UID.
+4. Upload index.html, draft-config.js, README.md, .nojekyll to GitHub Pages repository root.
+5. Sign in from Draft Room and test one pick in two browser windows, then undo.
+Note: Current player stats are still the old ten-week totals, while Week 11 is pending incorporation.
