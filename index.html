@@ -75,7 +75,11 @@ const activeRosterKeys=new Set(rosterSource.filter(r=>r.source==='2026–27'||(r
 const normName=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const OUA_TEAM_IDS={"Brock":"9dg0hmpjxecjln3n","Guelph":"ri6lg0tju4cm69o8","McMaster":"rt29cwtjpiysgfgy","Nipissing":"palcur2z2rm4yhgz","Queen's":"r47nrailrq98umk0","RMC":"513wsaithqcjlp3h","Toronto":"g9kg9ywarmsr9cjs","Toronto Metropolitan":"7mdn5d94iihl4rql","Trent":"p9zk771pr9e1l7gy","Waterloo":"wfg9v13kw44fpdml","Western":"z78dtiv4mtf2w4ot","Windsor":"kz86wug4l4an9b49","York":"vwd09c5wgzl275w4"};
 OUA_TEAM_IDS['TMU']=OUA_TEAM_IDS['Toronto Metropolitan'];
-const getOuaTeamId=(school)=>OUA_TEAM_IDS[String(school||" ").trim()]||"";
+const getOuaTeamId=(school)=>{
+ const raw=String(school||'').trim().replace(/\s*\(University Team\)\s*$/i,'');
+ const aliases={'Toronto Metropolitan University':'Toronto Metropolitan','TMU Bold':'TMU','Queen’s':"Queen's",'Royal Military College':'RMC','University of Toronto':'Toronto','University of Waterloo':'Waterloo'};
+ return OUA_TEAM_IDS[raw]||OUA_TEAM_IDS[aliases[raw]||'']||'';
+};
 const historicalIndex=new Map(all.map(p=>[p.team+'|'+normName(p.name),p]));
 const rosterIndex=new Set(rosterSource.map(r=>r.team+'|'+normName(r.name)));
 const pool=rosterSource.filter(r=>r.source==='2026–27'||(r.team==='Western'&&(r.preseason||String(r.year)!=='5'))).map(r=>({...r,historical:historicalIndex.get(r.team+'|'+normName(r.name))||null}));
@@ -104,7 +108,7 @@ document.querySelector('#roster-page').addEventListener('click',e=>{const b=e.ta
 ['rq','rteam','rposition','rstatus'].forEach(id=>document.querySelector('#'+id).addEventListener(id==='rq'?'input':'change',renderRoster));
 function setPage(which){['scout','roster','live','lottery'].forEach(name=>{document.querySelector('#'+name+'-page').classList.toggle('hidden-page',which!==name);document.querySelector('#nav-'+name).classList.toggle('active',which===name)});if(which==='live')renderLive();window.scrollTo({top:0,behavior:'instant'})}
 document.querySelector('#nav-scout').onclick=()=>setPage('scout');document.querySelector('#nav-roster').onclick=()=>setPage('roster');document.querySelector('#nav-live').onclick=()=>setPage('live');document.querySelector('#nav-lottery').onclick=()=>setPage('lottery');document.querySelector('#see-draft-order').onclick=()=>setPage('lottery');document.querySelector('#copy-draft-order').onclick=()=>{const v=Array.from({length:11},(_,i)=>`Round ${i+1}: `+(i%2===0?DRAFT_ORDER:[...DRAFT_ORDER].reverse()).join(' → ')).join('\n');navigator.clipboard.writeText(v).then(()=>{document.querySelector('#copy-draft-order').textContent='Copied!'}).catch(()=>{alert(v)})};
-document.querySelector('#export-board').onclick=()=>{const rows=[['Player','University','Position','Year','Draft status','Roster evidence','OUA Player ID','OUA University ID']];pool.filter(p=>picks[keyOf(p)]).forEach(p=>rows.push([p.name,p.team,p.pos,p.year,picks[keyOf(p)],p.source,p.historical?.pid||'',getOuaTeamId(p.team)]));const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='oua_fantasy_draft_board.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+document.querySelector('#export-board').onclick=()=>{const rows=[['Player','University','Position','Year','Draft status','Roster evidence','OUA Player ID','Team_ID','OUA University ID']];pool.filter(p=>picks[keyOf(p)]).forEach(p=>rows.push([p.name,p.team,p.pos,p.year,picks[keyOf(p)],p.source,p.historical?.pid||'',getOuaTeamId(p.team),getOuaTeamId(p.team)]));const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='oua_fantasy_draft_board.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 document.querySelector('#clear-board').onclick=()=>{if(confirm('Clear your local draft board?')){picks={};savePicks();renderRoster()}};
 renderRoster();
 
@@ -167,8 +171,8 @@ $('#live-submit').onclick=liveSubmit;
  function downloadDraftCSV(filename,rows){const content='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');const a=document.createElement('a');const u=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)}
  // Shared history: include both the actual stored asset key and its associated OUA ID.
  $('#live-export').onclick=()=>{
- const rows=[['Pick','Round','Manager','Asset type','Player / University','University','Position','OUA player ID','OUA university ID','Stored draft asset key','ID source','Timestamp']];
- [...draftRecords].sort((a,b)=>a.pick_number-b.pick_number).forEach(p=>{const m=getDraftMeta(p);rows.push([p.pick_number,Math.ceil(p.pick_number/6),p.manager,m.assetType,p.player_name,p.team,p.position,m.playerId,m.universityId,m.assetKey,m.idSource,p.selected_at||''])});
+ const rows=[['Pick','Round','Manager','Asset type','Player / University','University','Team_ID','Position','OUA player ID','OUA university ID','Stored draft asset key','ID source','Timestamp']];
+ [...draftRecords].sort((a,b)=>a.pick_number-b.pick_number).forEach(p=>{const m=getDraftMeta(p);rows.push([p.pick_number,Math.ceil(p.pick_number/6),p.manager,m.assetType,p.player_name,p.team,m.universityId,p.position,m.playerId,m.universityId,m.assetKey,m.idSource,p.selected_at||''])});
  downloadDraftCSV('oua_fantasy_draft_history_with_ids.csv',rows);
  };
  // One complete, auditable roster export including empty roster slots and completeness checks.
@@ -193,9 +197,9 @@ $('#live-submit').onclick=liveSubmit;
  return {slots,extras,selected,missing,warnings,complete:warnings.length===0};
  }
  $('#live-roster-export').onclick=()=>{
- const rows=[['Manager','Roster slot','Slot number','Slot status','Pick number','Round','Player / University','Player position','Player university','Asset type','OUA player ID','OUA university ID','Stored draft asset key','ID source','Manager picks','Roster complete','Roster notes','Timestamp']];
+ const rows=[['Manager','Roster slot','Slot number','Slot status','Pick number','Round','Player / University','Player position','Player university','Team_ID','Asset type','OUA player ID','OUA university ID','Stored draft asset key','ID source','Manager picks','Roster complete','Roster notes','Timestamp']];
  for(const manager of DRAFT_ORDER){const {slots,extras,selected,complete,warnings}=assignedRoster(manager);const notes=warnings.join('; ')||'Complete';
- const put=(slot,slotNumber,p)=>{const meta=p?getDraftMeta(p):null;rows.push([manager,slot,slotNumber,p?'FILLED':'OPEN',p?.pick_number||'',p?Math.ceil(p.pick_number/6):'',p?.player_name||'',p?.position||'',p?.team||'',meta?.assetType||'',meta?.playerId||'',meta?.universityId||'',meta?.assetKey||'',meta?.idSource||'',selected.length,complete?'YES':'NO',notes,p?.selected_at||''])};
+ const put=(slot,slotNumber,p)=>{const meta=p?getDraftMeta(p):null;rows.push([manager,slot,slotNumber,p?'FILLED':'OPEN',p?.pick_number||'',p?Math.ceil(p.pick_number/6):'',p?.player_name||'',p?.position||'',p?.team||'',meta?.universityId||'',meta?.assetType||'',meta?.playerId||'',meta?.universityId||'',meta?.assetKey||'',meta?.idSource||'',selected.length,complete?'YES':'NO',notes,p?.selected_at||''])};
  slots.forEach(x=>put(x.slot,x.slotNumber,x.p));extras.forEach((p,i)=>put('EXTRA / REVIEW',i+1,p));
  }
  downloadDraftCSV('oua_fantasy_all_manager_rosters.csv',rows);
